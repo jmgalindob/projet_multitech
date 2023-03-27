@@ -83,7 +83,9 @@ bool EntryBarrierPosition=false; //Position de la barrière d'entrée true=ouver
 bool ExitBarrierPosition=false; //Position de la barrière de sortie true=ouverte false=fermée
 int CarSensorSpotPins [20]={CarSensorSpot1,CarSensorSpot2,CarSensorSpot3,CarSensorSpot4,CarSensorSpot5,CarSensorSpot6,CarSensorSpot7,CarSensorSpot8,CarSensorSpot9,CarSensorSpot10,CarSensorSpot11,CarSensorSpot12,CarSensorSpot13,CarSensorSpot14,CarSensorSpot15,CarSensorSpot16,CarSensorSpot17,CarSensorSpot18,CarSensorSpot19,CarSensorSpot20};
 int CarHoldersPins[4]={CarHolders1Pin,CarHolders2Pin,CarHolders3Pin,CarHolders4Pin}; //Tableau des pins des maintiens de roue
-bool TakenSpots[20][3]={{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,},{false,,}}; //Tableau des places de parking, false=place libre true=place occupée
+bool TakenSpots[20]={false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false}; //Tableau des places de parking occupées
+int TakenSpotsTimer[20][2]={{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}}//{Heure arrivée, heure départ}
+char TakenSpotsImmat[20][7]={,,,,,,,,,,,,,,,,,}; //Tableau des immatriculations des voitures sur les places de parking
 bool CarHoldersPosition[4]={false,false,false,false}; //Position des maintiens de roue false=repliés true=déployés
 bool TicketAvailable=true; 
 const int SpotsPositions[20][2]={{1,0},{1,36},{1,72},{1,108},{1,144},{1,180},{1,216},{1,252},{1,288},{1,324},{2,0},{2,36},{2,72},{2,108},{2,144},{2,180},{2,216},{2,252},{2,288},{2,324}}; //Tableau des positions des places de parking
@@ -101,6 +103,7 @@ void EmergencyStop ();
 void EntryBarrierOpen ();
 void CarHoldersDeploy ();
 void PlatformInit();
+void BarrierOpen ();
 
 
 
@@ -205,15 +208,44 @@ void ShowAvailableSpots (){
 }
 
 void PlatformInit(){
+
 Serial.println("Déplacement plateforme en position initiale");
 TranslatePlatform.write(0);
 RotatePlatform.write(0);
 while(digitalRead(Floor0Sensor)==HIGH){
+    digitalWrite(EnableBridgePin, HIGH);
     analogWrite(ElevatorUpPin, 0);
     analogWrite(ElevatorDownPin, Power);
   }
-  }
+}
 
+void MoveTo(int Floor,int Angle){
+  analogWrite(ElevatorDownPin,0); //On s'assure qu'il ne tournera pas dans l'autre sens
+  analogWrite(ElevatorUpPin,Power); //On monte l'ascenseur
+  RotatePlatform.write(Angle); //On tourne la plateforme
+
+  if(Floor==1&&digitalRead(Floor1Sensor)==LOW){ //Si la place est au premier étage
+    digitalWrite(EnableBridgePin, LOW); //On désactive le pont
+    TranslatePlatform.write(90); //On déplace la plateforme vers la place
+    delay(1000); //On attend 1 seconde
+    int PlaceNumber=i+1; //On détermine le numéro de la place
+    if(digitalRead("CarSensorSpot"+PlaceNumber)==LOW){ //Si la voiture est bien placée
+      TakenSpots[i]=true; //On met à jour le tableau des places de parking
+      ShowAvailableSpots(); //On affiche le nombre de places disponibles
+      PlatformInit(); //On remet la plateforme en position initiale
+    }
+   }
+  if(Floor==2&&digitalRead(Floor2Sensor)==LOW){ //Si la place est au deuxième étage
+    digitalWrite(EnableBridgePin, LOW); //On désactive le pont
+    TranslatePlatform.write(90); //On déplace la plateforme vers la place
+    delay(1000); //On attend 1 seconde
+    int PlaceNumber=i+1;
+    if(digitalRead("CarSensorSpot"+PlaceNumber)==LOW){ //Si la voiture est bien placée
+      ShowAvailableSpots(); //On affiche le nombre de places disponibles
+      PlatformInit(); //On remet la plateforme en position initiale
+    }
+  }
+}
 //-------------------------------------------------
 //------------- BOUCLE INFINIE --------------------
 //-------------------------------------------------
@@ -251,11 +283,12 @@ void loop()
     ShowAvailableSpots(); //On affiche le nombre de places disponibles
     //Changement d'état
     if(digitalRead(EntryDesk)==HIGH){ETAT=ENTRY;} //Si le bouton de l'entrée est appuyé, on passe à l'état ENTRY
-    if(digitalRead(ExitDesk)==HIGH){ETAT=EXIT;} //Si le bouton de la sortie est appuyé, on passe à l'état EXIT
+    if(digitalRead(ExitDesk)==HIGH){ETAT=PAYEMENT;} //Si le bouton de la sortie est appuyé, on passe à l'état PAYEMENT
     break;
 
 
     case EXIT:
+    if
     break;
 
     case ENTRY:
@@ -299,49 +332,33 @@ void loop()
     case MOVING:
     for(int i=0;i<20;i++){
       if(TakenSpots[i]==false){    
-        RotatePlatform.write(SpotsPositions[i][2]); //On tourne la plateforme vers le bon angle
-        delay(1000); //On attend 1 seconde
-        analogWrite(ElevatorDownPin,0); //On s'assure qu'il ne tournera pas dans l'autre sens
-        analogWrite(ElevatorUpPin,Power); //On monte l'ascenseur
-
-        if(SpotsPositions[i][1]==1&&digitalRead(Floor1Sensor)==LOW){ //Si la place est au premier étage
-          TranslatePlatform.write(90);
-          delay(1000); //On attend 1 seconde
-          if(digitalRead("CarSensorSpot"+i)==LOW){ //Si la voiture est bien placée
-            TakenSpots[i]=true; //On met à jour le tableau des places de parking
-            ShowAvailableSpots(); //On affiche le nombre de places disponibles
-            PlatformInit(); //On remet la plateforme en position initiale
-            ETAT=INIT; //On passe à l'état INIT
-          }
-        }
-        if(SpotsPositions[i][1]==2&&digitalRead(Floor2Sensor)==LOW){ //Si la place est au deuxième étage
-          TranslatePlatform.write(90); //On déplace la plateforme vers la place
-          delay(1000); //On attend 1 seconde
-          if(digitalRead("CarSensorSpot"+i)==LOW){ //Si la voiture est bien placée
-            TakenSpots[i]=true; //On met à jour le tableau des places de parking
-            ShowAvailableSpots(); //On affiche le nombre de places disponibles
-            PlatformInit(); //On remet la plateforme en position initiale
-            ETAT=INIT; //On passe à l'état INIT
-          }
-        }
+        MoveTo(SpotsPosition[i][0],SpotsPosition[i][1]); //On se déplace vers la place
+        TakenSpots[i]=true; //On met à jour le tableau des places de parking
+        ETAT=INIT;
       }
     }
     break;
 
     case PAYEMENT:
+    Serial.println("Scannez votre ticket");
     
+
     break;
 
     case DELIVERY:
+
     break;
 
     case FIRE:
+    
     break;
 
     case INTRUSION:
+    
     break;
 
     case ERROR:
+  
     break;
 
   }    
