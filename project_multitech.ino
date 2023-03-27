@@ -8,7 +8,7 @@
 /// Carte: Arduino MEGA
 ////////////////////////////////////////////////////
 //  Date/version: 03/2023
-//  Description: Gestion des entrées/sorties d'un parking automatique
+//  Description: Gestion des entrées/sorties d'un parking automatique ------
 ///////////////////////////////////////////////////
 
 //-------------------------------------------------
