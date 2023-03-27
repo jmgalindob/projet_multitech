@@ -23,7 +23,9 @@
 
 // Définition des broches...
 //Sorties
-#define ElevatorPin 0 //Ascenseur
+#define ElevatorUpPin 0 //Ascenseur montée
+#define ElevatorDownPin 1 //Ascenseur descente
+#define EnableBridgePin 2 //Activation du pont
 #define RotatePlatformPin 5 //Rotation de la plateforme
 #define TranslatePlatformPin 6 //Translation de la plateforme
 #define EntryBarrierPin 7 //Barrière d'entrée
@@ -82,6 +84,7 @@ bool TakenSpots[20]={false,false,false,false,false,false,false,false,false,false
 bool CarHoldersPosition[4]={false,false,false,false}; //Position des maintiens de roue false=repliés true=déployés
 bool TicketAvailable=true; 
 const int SpotsPositions[20][2]={{1,0},{1,36},{1,72},{1,108},{1,144},{1,180},{1,216},{1,252},{1,288},{1,324},{2,0},{2,36},{2,72},{2,108},{2,144},{2,180},{2,216},{2,252},{2,288},{2,324}}; //Tableau des positions des places de parking
+int Power=80; //Puissance de l'ascenseur
 // Instantation d'objet
 Servo RotatePlatform;
 Servo TranslatePlatform;
@@ -146,8 +149,7 @@ void setup()
 
 //  Code des procédures et fonctions
 void EmergencyStop(){
-  ///////////////////////////A FAIRE////////////////////////////
-
+  ETAT=0;
 }
 void CarHoldersDeploy(int CarHoldersNumber, bool Position){ //CarHoldersNumber=Numéro du maintien de roue Position=true=déployé false=replié
   if (Position==true&&CarHoldersPosition[CarHoldersNumber]==false){
@@ -204,12 +206,14 @@ void loop()
   switch(ETAT){ //On regarde dans quel état on est
 
     case STOP: 
+    digitalWrite(EnableBridgePin;LOW); //On désactive le pont en H de l'ascenceur
     digitalWrite(AvailableSpotsScreenPin, LOW); //Ecran éteint
     if (digitalRead(PowerButton) == HIGH) {ETAT=INIT;} //Si le bouton d'alimentation est appuyé, on passe à l'état INIT
     break;
 
 
     case INIT:
+    digitalWrite(EnableBridgePin;HIGH); //On active le pont en H de l'ascenceur
     digitalWrite(AvailableSpotsScreenPin, HIGH); //Ecran allumé
     BarrierOpen("S",false); //On ferme la barrière de sortie
     BarrierOpen("E",false); //On ferme la barrière d'entrée
@@ -275,7 +279,16 @@ void loop()
     break;
 
     case MOVING:
-    
+    for(int i=0;len(TakenSpots);i++){
+      if(TakenSpots[i]==false){    
+        RotatePlatform.write(SpotsPositions[i][2]); //On tourne la plateforme vers le bon angle
+        analogWrite(ElevatorUpPin,Power);
+        analogWrite(ElevatorDownPin,0);
+        digitalWrite(Elevator, HIGH); //On monte l'ascenseur
+        
+          }
+        }
+      }
 
     break;
 
