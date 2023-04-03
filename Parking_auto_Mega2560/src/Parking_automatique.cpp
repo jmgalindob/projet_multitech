@@ -283,7 +283,7 @@ void loop()
     Serial.println("1-Entrer");
     Serial.println("2-Sortir");
     while(Serial.available()==0){} //On attend que l'utilisateur entre 1 ou 2
-    String(Choice)=Serial.readString(); //On stocke le choix de l'utilisateur
+    int Choice=Serial.parseInt(); //On stocke le choix de l'utilisateur
     //Changement d'état
     //if(digitalRead(EntryDesk)==HIGH){ETAT=ENTRY;} //Si le bouton de l'entrée est appuyé, on passe à l'état ENTRY
     if(Choice==1){ETAT=ENTRY;} //Si l'utilisateur a choisi 1, on passe à l'état ENTRY
