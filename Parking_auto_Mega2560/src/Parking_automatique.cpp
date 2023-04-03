@@ -247,8 +247,7 @@ void MoveTo(int Floor,int Angle){
 //------------- BOUCLE INFINIE --------------------
 //-------------------------------------------------
 
-void loop() 
-{
+void loop() {
   enum liste_etat{STOP,INIT,ENTRY,CARLOADING,MOVING,PAYEMENT,DELIVERY,FIRE,INTRUSION,ERROR,FULL};   //Liste des états
   switch(ETAT){ //On regarde dans quel état on est
 
@@ -314,7 +313,7 @@ void loop()
       Serial.println("Porte d'entrée ouverte"); //On affiche "Porte d'entrée ouverte" sur le moniteur série
       TicketAvailable=true; //On indique qu'un ticket est disponible
       ETAT=CARLOADING; //On passe à l'état CARLOADING
-    }
+    //}
     break;
 
     case CARLOADING:
@@ -333,8 +332,8 @@ void loop()
         //if(digitalRead(CarHolders1EndSensor)==LOW){
           CarHoldersDeploy(1,true); 
           CarHoldersDeploy(3,true); 
-        }
-      }
+        //}
+      //}
       static int CarHoldersDeployed=0;
       for (int i=0;i<4;i++){
         if(CarHoldersPosition[i]==true){ 
@@ -350,7 +349,7 @@ void loop()
       if(CarHoldersDeployed==4){ETAT=MOVING;} //Si les 4 maintiens sont ouverts, on passe à l'état MOVING
       else{ETAT=ERROR;}
       }
-    }
+    //}
     break;
 
     case MOVING:
@@ -384,7 +383,7 @@ void loop()
         Paid=true;
         }
       }
-    }
+    
     if(Paid==true){ETAT=DELIVERY;} //Si le paiement est effectué, on passe à l'état DELIVERY
     else{ETAT=ERROR;} //Sinon, on passe à l'état ERROR
     break;
@@ -411,7 +410,6 @@ void loop()
           ETAT=INIT; //On passe à l'état INIT
         }
       }
-    }
     break;
 
     case FIRE:
