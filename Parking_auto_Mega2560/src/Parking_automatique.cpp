@@ -103,10 +103,10 @@ Servo CarHolders[4];
 // Déclaration des fonctions
 void ShowAvailableSpots ();
 void EmergencyStop ();
-void CarHoldersDeploy ();
+void CarHoldersDeploy(int CarHoldersNumber, bool Position);
 void PlatformInit();
-void BarrierOpen ();
-void MoveTo ();
+void BarrierOpen (bool Position);
+void MoveTo (int Floor,int Angle);
 
 
 
