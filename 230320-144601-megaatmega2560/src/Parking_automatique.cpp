@@ -82,7 +82,7 @@
 //-------------------------------------------------
 
 	// Déclaration des variables
-int ETAT=0;
+int ETAT=1;
 bool EntryBarrierPosition=false; //Position de la barrière d'entrée true=ouverte false=fermée
 int CarSensorSpotPins[20]={CarSensorSpot1,CarSensorSpot2,CarSensorSpot3,CarSensorSpot4,CarSensorSpot5,CarSensorSpot6,CarSensorSpot7,CarSensorSpot8,CarSensorSpot9,CarSensorSpot10,CarSensorSpot11,CarSensorSpot12,CarSensorSpot13,CarSensorSpot14,CarSensorSpot15,CarSensorSpot16,CarSensorSpot17,CarSensorSpot18,CarSensorSpot19,CarSensorSpot20};
 int CarHoldersPins[4]={CarHolders1Pin,CarHolders2Pin,CarHolders3Pin,CarHolders4Pin}; //Tableau des pins des maintiens de roue
@@ -262,6 +262,7 @@ void loop()
 
 
     case INIT:
+    Serial.println("Initialisation");
     digitalWrite(EnableBridgePin;HIGH); //On active le pont en H de l'ascenceur
     digitalWrite(AvailableSpotsScreenPin, HIGH); //Ecran allumé
     BarrierOpen(false); //On ferme la barrière d'entrée
@@ -305,24 +306,33 @@ void loop()
       digitalWrite(TicketsDispenserPin, LOW); //On éteint le distributeur de ticket
     }
     BarrierOpen(true);  //On ouvre la barrière d'entrée
-    if(digitalRead(EntryBarrierSensor)==LOW){
+    Serial.println("L'utilisateur peut entrer");
+    while(Serial.available()==0){} //On attend que l'utilisateur entre dans le parking
+    //if(digitalRead(EntryBarrierSensor)==LOW){
       delay(2000); //On attend 2 secondes
       BarrierOpen(false); //On ferme la barrière d'entrée
+      Serial.println("Barrière fermée"); //On affiche "Barrière fermée" sur le moniteur série
       EntryDoor.write(90) //On ouvre la porte d'entrée
       Serial.println("Porte d'entrée ouverte"); //On affiche "Porte d'entrée ouverte" sur le moniteur série
       TicketAvailable=true; //On indique qu'un ticket est disponible
-      ETAT=CARPLACEMENT; //On passe à l'état CARPLACEMENT
+      ETAT=CARLOADING; //On passe à l'état CARLOADING
     }
     break;
 
     case CARLOADING:
-    if (digitalRead(CarSensorPlatform)==LOW){
+    Serial.println("En attente de la voiture");
+    while(Serial.available()==0){} //On attend que l'utilisateur mette la voiture sur la plateforme
+    Serial.println("Voiture détectée");
+    //if (digitalRead(CarSensorPlatform)==LOW){
       CarHoldersDeploy(0,true);
       //L'utilisateur avance sa voiture jusqu'au capteur sur la barre 1
-      if(digitalRead(CarHolders1Sensor)==LOW){  
+      Serial.println("Avancez la voiture jusqu'au capteur sur la barre 1");
+      //if(digitalRead(CarHolders1Sensor)==LOW){  
         CarHoldersDeploy(2,true);
       //L'utilisateur continue d'avancer sa voiture jusqu'au capteur de fin de course sur la barre 1
-        if(digitalRead(CarHolders1EndSensor)==LOW){
+        Serial.println("Avancez la voiture jusqu'au capteur de fin de course sur la barre 1");
+        while(Serial.available()==0){} //On attend que l'utilisateur avance sa voiture jusqu'au capteur de fin de course sur la barre 1
+        //if(digitalRead(CarHolders1EndSensor)==LOW){
           CarHoldersDeploy(1,true); 
           CarHoldersDeploy(3,true); 
         }
@@ -395,7 +405,9 @@ void loop()
         ExitDoor.write(90); //On ouvre la porte de sortie
         Serial.println("Porte de sortie ouverte"); //On affiche "Porte de sortie ouverte" sur le moniteur série
         delay(5000); //On attend 5 secondes
-        if(digitalRead(ExitSensor)==LOW){ //Si l'utilisateur est sorti
+        Serial.println("En attente de la sortie de l'utilisateur");
+        while(Serial.available()==0){} //On attend que l'utilisateur sorte la voiture
+        //if(digitalRead(ExitSensor)==LOW){ //Si l'utilisateur est sorti
           ExitDoor.write(0); //On ferme la porte de sortie
           Serial.println("Porte de sortie fermée"); //On affiche "Porte de sortie fermée" sur le moniteur série
           ETAT=INIT; //On passe à l'état INIT
