@@ -20,6 +20,8 @@
 // Inclusion de bibliothèques
 #include <Arduino.h>
 #include <Servo.h>
+#include <LiquidCrystal.h>
+#include <ElapsedMillis.h>
 
 // Définition des broches...
 //Sorties
@@ -45,6 +47,7 @@
 #define EntryBarrierSensor 4 //Capteur de barrière d'entrée
 #define UserIsOutButton 11 //Bouton de sortie de la plateforme
 #define ExitDesk 12 //Bouton de sortie
+#define ExitSensor 5 //Capteur de sortie
 #define CarSensorPlatform 13   //Capteur de voiture sur la plateforme
 #define Floor0Sensor 36 //Capteur de fin de course du rez-de-chaussée
 #define Floor1Sensor 38 //Capteur de fin de course du 1er étage
@@ -84,7 +87,7 @@ bool EntryBarrierPosition=false; //Position de la barrière d'entrée true=ouver
 int CarSensorSpotPins[20]={CarSensorSpot1,CarSensorSpot2,CarSensorSpot3,CarSensorSpot4,CarSensorSpot5,CarSensorSpot6,CarSensorSpot7,CarSensorSpot8,CarSensorSpot9,CarSensorSpot10,CarSensorSpot11,CarSensorSpot12,CarSensorSpot13,CarSensorSpot14,CarSensorSpot15,CarSensorSpot16,CarSensorSpot17,CarSensorSpot18,CarSensorSpot19,CarSensorSpot20};
 int CarHoldersPins[4]={CarHolders1Pin,CarHolders2Pin,CarHolders3Pin,CarHolders4Pin}; //Tableau des pins des maintiens de roue
 bool TakenSpots[20]={false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false}; //Tableau des places de parking occupées
-int TakenSpotsTimer[20][2]={{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}}//{Heure arrivée, heure départ}
+int TakenSpotsTimer[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; //Tableau des temps d'occupation des places de parking
 String() TakenSpotsImmat[20]={,,,,,,,,,,,,,,,,,}; //Tableau des immatriculations des voitures sur les places de parking
 bool CarHoldersPosition[4]={false,false,false,false}; //Position des maintiens de roue false=repliés true=déployés
 bool TicketAvailable=true; 
@@ -105,6 +108,7 @@ void EmergencyStop ();
 void CarHoldersDeploy ();
 void PlatformInit();
 void BarrierOpen ();
+void MoveTo ();
 
 
 
@@ -138,10 +142,6 @@ void setup()
   pinMode(IntrusionSensor, INPUT);
   pinMode(Floor1Sensor, INPUT);
   pinMode(Floor2Sensor, INPUT);
-
-  
-
-
   for (int i = 1; i < 20; i++){ //Boucle pour les capteurs de voiture sur les places
       pinMode(CarSensorSpotPins[i], INPUT);
   }
@@ -196,6 +196,10 @@ void ShowAvailableSpots (){
     if (TakenSpots[i]==false){
       FreeSpots++;
     }
+    if (FreeSpots==0){
+      Serial.println("Parking complet");
+      ETAT=11;
+    }
     Serial.println("Places libres: " + FreeSpots);
     ///////////////////////////A FAIRE//////////////////////////// Afficher FreeSpots sur l'écran
   }
@@ -247,7 +251,7 @@ void MoveTo(int Floor,int Angle){
 
 void loop() 
 {
-  enum liste_etat{STOP,INIT,EXIT,ENTRY,CARPLACEMENT,MOVING,PAYEMENT,DELIVERY,FIRE,INTRUSION,ERROR};   //Liste des états
+  enum liste_etat{STOP,INIT,ENTRY,CARLOADING,MOVING,PAYEMENT,DELIVERY,FIRE,INTRUSION,ERROR,FULL};   //Liste des états
   switch(ETAT){ //On regarde dans quel état on est
 
     case STOP: 
@@ -288,11 +292,6 @@ void loop()
     if(Choice==2){ETAT=PAYEMENT;} //Si l'utilisateur a choisi 2, on passe à l'état PAYEMENT
     break;
 
-
-    case EXIT:
-    if
-    break;
-
     case ENTRY:
     Serial.println("Plaque d'immatriculation ?"); //On demande la plaque d'immatriculation
     while(Serial.available()==0){} //On attend que l'utilisateur entre la plaque d'immatriculation
@@ -311,11 +310,12 @@ void loop()
       BarrierOpen(false); //On ferme la barrière d'entrée
       EntryDoor.write(90) //On ouvre la porte d'entrée
       Serial.println("Porte d'entrée ouverte"); //On affiche "Porte d'entrée ouverte" sur le moniteur série
+      TicketAvailable=true; //On indique qu'un ticket est disponible
       ETAT=CARPLACEMENT; //On passe à l'état CARPLACEMENT
     }
     break;
 
-    case CARPLACEMENT:
+    case CARLOADING:
     if (digitalRead(CarSensorPlatform)==LOW){
       CarHoldersDeploy(0,true);
       //L'utilisateur avance sa voiture jusqu'au capteur sur la barre 1
@@ -339,14 +339,17 @@ void loop()
       Serial.println("Porte d'entrée fermée"); //On affiche "Porte d'entrée fermée" sur le moniteur série
       //while(digitalRead(UserIsOutButton)==LOW){} //On attend que l'utilisateur sorte de la voiture
       //if(CarHoldersDeployed==4&&digitalRead(UserIsOutButton)==LOW){ETAT=MOVING;} //Si les 4 maintiens sont ouverts et que le bouton "l'utilisateur est sorti" est appuyé, on passe à l'état MOVING
-      if(CarHoldersDeployed==4&&){ETAT=MOVING;} //Si les 4 maintiens sont ouverts, on passe à l'état MOVING
+      if(CarHoldersDeployed==4){ETAT=MOVING;} //Si les 4 maintiens sont ouverts, on passe à l'état MOVING
+      else{ETAT=ERROR;}
       }
     }
     break;
 
     case MOVING:
     for(int i=0;i<20;i++){
-      if(TakenSpots[i]==false){    
+      if(TakenSpots[i]==false){  
+        elapsedSeconds TimeSincePlacement; //On initialise le timer  
+        TakenSpotsTimer[i]=TimeSincePlacement; //On stocke le timer dans le tableau des timers
         MoveTo(SpotsPosition[i][0],SpotsPosition[i][1]); //On se déplace vers la place
         TakenSpots[i]=true; //On met à jour le tableau des places de parking
         TakenSpotsImmat[i]=PlateNumber; //On met à jour le tableau des plaques d'immatriculation
@@ -356,23 +359,49 @@ void loop()
     break;
 
     case PAYEMENT:
+    bool Paid=false;
     Serial.println("Scannez votre ticket");
     Serial.println("Plaque d'immatriculation?");
     while(Serial.available()==0){} //On attend que l'utilisateur entre la plaque d'immatriculation
     String(AskedPlateNumber)=Serial.readString(); //On stocke la plaque d'immatriculation
+    //Demander paiement en fonction du temps passé sur le parking
+    for(int i=0;i<20;i++){
+      if(TakenSpotsImmat[i]==AskedPlateNumber){ //Si la plaque d'immatriculation correspond à une plaque d'immatriculation enregistrée
+        Serial.println("Voiture trouvée");
+        Serial.println("Vous êtes restés "+TakenSpotsTimer[i]/60+"minutes sur le parking");
+        Serial.println("Vous devez payer "+TakenSpotsTimer[i]/60*0.1+"€");
+        Serial.println("Paiement effectué?");
+        TakenSpotsTimer[i]=0; //On remet le timer à 0
+        while(Serial.available()==0){} //On attend que l'utilisateur entre la plaque d'immatriculation
+        Paid=true;
+        }
+      }
+    }
+    if(Paid==true){ETAT=DELIVERY;} //Si le paiement est effectué, on passe à l'état DELIVERY
+    else{ETAT=ERROR;} //Sinon, on passe à l'état ERROR
+    break;
+
+    case DELIVERY:
     for(int i=0;i<20;i++){
       if(TakenSpotsImmat[i]==AskedPlateNumber){ //Si la plaque d'immatriculation correspond à une plaque d'immatriculation enregistrée
         MoveTo(SpotsPosition[i][0],SpotsPosition[i][1]); //On se déplace vers la place
         TranslatePlatform.write(90); //On déplace la plateforme vers la place
-        delay(1000); //On attend 1 seconde
+        delay(5000); //On attend 5 secondes
         TranslatePlatform.write(0); //On remet la plateforme à sa position initiale
-        ETAT=DELIVERY; //On passe à l'état DELIVERY
+        Serial.println("La voiture est récupérée");
+        AskedPlateNumber=""; //On vide la variable AskedPlateNumber
+        PlatformInit(); //On remet la plateforme à sa position initiale
+        Serial.println("La voiture est en bas");
+        ExitDoor.write(90); //On ouvre la porte de sortie
+        Serial.println("Porte de sortie ouverte"); //On affiche "Porte de sortie ouverte" sur le moniteur série
+        delay(5000); //On attend 5 secondes
+        if(digitalRead(ExitSensor)==LOW){ //Si l'utilisateur est sorti
+          ExitDoor.write(0); //On ferme la porte de sortie
+          Serial.println("Porte de sortie fermée"); //On affiche "Porte de sortie fermée" sur le moniteur série
+          ETAT=INIT; //On passe à l'état INIT
+        }
       }
     }
-    break;
-
-    case DELIVERY:
-
     break;
 
     case FIRE:
@@ -384,7 +413,7 @@ void loop()
     break;
 
     case ERROR:
-  
+    Serial.println("Une erreur est survenue, un technicien va intervenir");
     break;
 
   }    
