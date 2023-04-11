@@ -1,3 +1,5 @@
+#include <elapsedMillis.h>
+
 //-------------------------------------------------
 //-------------- DESCRIPTION-----------------------
 //-------------------------------------------------
@@ -8,7 +10,7 @@
 /// Carte: Arduino MEGA
 ////////////////////////////////////////////////////
 //  Date/version: 03/2023
-//  Description: Gestion des entrées/sorties d'un parking automatique
+//  Description: Gestion des entrées/sorties d un parking automatique
 ///////////////////////////////////////////////////
 
 //-------------------------------------------------
@@ -86,7 +88,7 @@ int CarSensorSpotPins[20]={CarSensorSpot1,CarSensorSpot2,CarSensorSpot3,CarSenso
 int CarHoldersPins[4]={CarHolders1Pin,CarHolders2Pin,CarHolders3Pin,CarHolders4Pin}; //Tableau des pins des maintiens de roue
 bool TakenSpots[20]={false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false}; //Tableau des places de parking occupées
 int TakenSpotsTimer[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; //Tableau des temps d'occupation des places de parking
-String() TakenSpotsImmat[20]={,,,,,,,,,,,,,,,,,}; //Tableau des immatriculations des voitures sur les places de parking
+String(TakenSpotsImmat[20])={"","","","","","","","","","","","","","","","","",""}; //Tableau des immatriculations des voitures sur les places de parking
 bool CarHoldersPosition[4]={false,false,false,false}; //Position des maintiens de roue false=repliés true=déployés
 bool TicketAvailable=true; 
 const int SpotsPositions[20][2]={{1,0},{1,36},{1,72},{1,108},{1,144},{1,180},{1,216},{1,252},{1,288},{1,324},{2,0},{2,36},{2,72},{2,108},{2,144},{2,180},{2,216},{2,252},{2,288},{2,324}}; //Tableau des positions des places de parking
@@ -145,7 +147,7 @@ void setup()
   }
 
       //Initialisation 
-  Serial.begin(9600);
+  Serial.begin(19200);
   RotatePlatform.attach(RotatePlatformPin);
   EntryBarrier.attach(EntryBarrierPin);
   EntryDoor.attach(EntryDoorPin);
@@ -164,6 +166,7 @@ void setup()
 void EmergencyStop(){
   ETAT=0;
 }
+
 void CarHoldersDeploy(int CarHoldersNumber, bool Position){ //CarHoldersNumber=Numéro du maintien de roue Position=true=déployé false=replié
   if (Position==true&&CarHoldersPosition[CarHoldersNumber]==false){
     CarHolders[CarHoldersNumber].write(90);  
@@ -175,12 +178,14 @@ void CarHoldersDeploy(int CarHoldersNumber, bool Position){ //CarHoldersNumber=N
   }
 }
 
-void BarrierOpen(bool Position){  //Barrier=E pour la barrière d'entrée S pour la barrière de sortie Position=true=ouverte false=fermée
+void BarrierOpen(bool Position){  //barrière de sortie Position=true=ouverte false=fermée
     if (Position==true&&EntryBarrierPosition==false){
       EntryBarrier.write(90);
       EntryBarrierPosition=true;
       Serial.println("Barrière d'entrée ouverte");
     }
+    if(Position==true&&EntryBarrierPosition==true){Serial.println("Barrière d'entrée déjà ouverte");}
+    if(Position==false&&EntryBarrierPosition==false){Serial.println("Barrière d'entrée déjà fermée");}
     else if (Position==false&&EntryBarrierPosition==true){
       EntryBarrier.write(0);
       EntryBarrierPosition=false;
@@ -192,15 +197,16 @@ void ShowAvailableSpots (){
   int FreeSpots=0;
   for (int i=0; i<20; i++){
     if (TakenSpots[i]==false){
-      FreeSpots++;
+      FreeSpots=FreeSpots+1;
     }
+  }
     if (FreeSpots==0){
       Serial.println("Parking complet");
       ETAT=11;
     }
-    Serial.println("Places libres: " + FreeSpots);
+    Serial.print("Places libres: ");
+    Serial.println(FreeSpots);
     ///////////////////////////A FAIRE//////////////////////////// Afficher FreeSpots sur l'écran
-  }
 }
 
 void PlatformInit(){
@@ -213,21 +219,20 @@ while(digitalRead(Floor0Sensor)==HIGH){
     analogWrite(ElevatorUpPin, 0);
     analogWrite(ElevatorDownPin, Power);
   }
+Serial.println("Plateforme en position initiale");
 }
 
-void MoveTo(int Floor,int Angle){
-  Serial.println("Déplacement plateforme vers l'étage "+Floor+" et l'angle "+Angle);
+void MoveTo(int Floor,int Angle,int PlaceNumber){
+  Serial.print("Déplacement plateforme vers l'étage ");Serial.print(Floor);Serial.print(" et l'angle ");Serial.println(Angle);
   analogWrite(ElevatorDownPin,0); //On s'assure qu'il ne tournera pas dans l'autre sens
   analogWrite(ElevatorUpPin,Power); //On monte l'ascenseur
   RotatePlatform.write(Angle); //On tourne la plateforme
-
+  PlaceNumber=PlaceNumber+1; //On détermine le numéro de la place
   if(Floor==1&&digitalRead(Floor1Sensor)==LOW){ //Si la place est au premier étage
     digitalWrite(EnableBridgePin, LOW); //On désactive le pont
     TranslatePlatform.write(90); //On déplace la plateforme vers la place
     delay(1000); //On attend 1 seconde
-    int PlaceNumber=i+1; //On détermine le numéro de la place
     if(digitalRead("CarSensorSpot"+PlaceNumber)==LOW){ //Si la voiture est bien placée
-      TakenSpots[i]=true; //On met à jour le tableau des places de parking
       ShowAvailableSpots(); //On affiche le nombre de places disponibles
       PlatformInit(); //On remet la plateforme en position initiale
     }
@@ -236,7 +241,6 @@ void MoveTo(int Floor,int Angle){
     digitalWrite(EnableBridgePin, LOW); //On désactive le pont
     TranslatePlatform.write(90); //On déplace la plateforme vers la place
     delay(1000); //On attend 1 seconde
-    int PlaceNumber=i+1;
     if(digitalRead("CarSensorSpot"+PlaceNumber)==LOW){ //Si la voiture est bien placée
       ShowAvailableSpots(); //On affiche le nombre de places disponibles
       PlatformInit(); //On remet la plateforme en position initiale
@@ -252,15 +256,17 @@ void loop() {
   switch(ETAT){ //On regarde dans quel état on est
 
     case STOP: 
-    digitalWrite(EnableBridgePin;LOW); //On désactive le pont en H de l'ascenceur
+    Serial.println("ETAT=STOP");
+    digitalWrite(EnableBridgePin, LOW); //On désactive le pont en H de l'ascenceur
     digitalWrite(AvailableSpotsScreenPin, LOW); //Ecran éteint
     if (digitalRead(PowerButton) == HIGH) {ETAT=INIT;} //Si le bouton d'alimentation est appuyé, on passe à l'état INIT
     break;
 
 
     case INIT:
+    Serial.println("ETAT=INIT");
     Serial.println("Initialisation");
-    digitalWrite(EnableBridgePin;HIGH); //On active le pont en H de l'ascenceur
+    digitalWrite(EnableBridgePin, HIGH); //On active le pont en H de l'ascenceur
     digitalWrite(AvailableSpotsScreenPin, HIGH); //Ecran allumé
     BarrierOpen(false); //On ferme la barrière d'entrée
     if(digitalRead(CarSensorPlatform)==LOW){ //S'il n'y a pas de voiture sur la plateforme
@@ -268,22 +274,17 @@ void loop() {
           CarHoldersDeploy(i,false); //On replie les maintiens de roue
         }
       }
-    TranslatePlatform.write(0); //On déplace la plateforme vers le centre
-    RotatePlatform.write(0); //On tourne la plateforme vers l'entrée
-    digitalWrite(ElevatorPin, LOW); //On descend l'ascenseur
+    PlatformInit();
     for (int i=0; i<20; i++){ //Boucle pour les capteurs de voiture sur les places
       if (digitalRead(CarSensorSpotPins[i])==LOW){ //Si un capteur de voiture est activé
         TakenSpots[i]=true; //On met à jour le tableau des places de parking
       }
     }
     ShowAvailableSpots(); //On affiche le nombre de places disponibles
-    Serial.println("Parking initialisé"); //On affiche "Parking initialisé" sur le moniteur série
-    Serial.println("Vous souhaitez entrer ou sortir ?")
-    Serial.println("1-Entrer");
-    Serial.println("2-Sortir");
-    while(Serial.available()==0){} //On attend que l'utilisateur entre 1 ou 2
+    Serial.println("Parking initialisé");Serial.println("Vous souhaitez entrer ou sortir ?");Serial.println("1-Entrer");Serial.println("2-Sortir");
+    while(!Serial.available()){} //On attend que l'utilisateur entre 1 ou 2
     int Choice=Serial.parseInt(); //On stocke le choix de l'utilisateur
-    //Changement d'état
+    Serial.println(Choice);//Changement d'état
     //if(digitalRead(EntryDesk)==HIGH){ETAT=ENTRY;} //Si le bouton de l'entrée est appuyé, on passe à l'état ENTRY
     if(Choice==1){ETAT=ENTRY;} //Si l'utilisateur a choisi 1, on passe à l'état ENTRY
     //if(digitalRead(ExitDesk)==HIGH){ETAT=PAYEMENT;} //Si le bouton de la sortie est appuyé, on passe à l'état PAYEMENT
@@ -291,8 +292,9 @@ void loop() {
     break;
 
     case ENTRY:
+    Serial.println("ETAT=ENTRY");
     Serial.println("Plaque d'immatriculation ?"); //On demande la plaque d'immatriculation
-    while(Serial.available()==0){} //On attend que l'utilisateur entre la plaque d'immatriculation
+    while(!Serial.available()){} //On attend que l'utilisateur entre la plaque d'immatriculation
     String(PlateNumber)=Serial.readString(); //On stocke la plaque d'immatriculation
     ///////////////////////////A FAIRE//////////////////////////////On scanne la plaque d'immatriculation
     if(TicketAvailable==true){
@@ -309,7 +311,7 @@ void loop() {
       delay(2000); //On attend 2 secondes
       BarrierOpen(false); //On ferme la barrière d'entrée
       Serial.println("Barrière fermée"); //On affiche "Barrière fermée" sur le moniteur série
-      EntryDoor.write(90) //On ouvre la porte d'entrée
+      EntryDoor.write(90); //On ouvre la porte d'entrée
       Serial.println("Porte d'entrée ouverte"); //On affiche "Porte d'entrée ouverte" sur le moniteur série
       TicketAvailable=true; //On indique qu'un ticket est disponible
       ETAT=CARLOADING; //On passe à l'état CARLOADING
@@ -317,6 +319,7 @@ void loop() {
     break;
 
     case CARLOADING:
+    Serial.println("ETAT=CARLOADING");
     Serial.println("En attente de la voiture");
     while(Serial.available()==0){} //On attend que l'utilisateur mette la voiture sur la plateforme
     Serial.println("Voiture détectée");
@@ -353,11 +356,12 @@ void loop() {
     break;
 
     case MOVING:
+    Serial.println("ETAT=MOVING");
     for(int i=0;i<20;i++){
       if(TakenSpots[i]==false){  
         elapsedSeconds TimeSincePlacement; //On initialise le timer  
         TakenSpotsTimer[i]=TimeSincePlacement; //On stocke le timer dans le tableau des timers
-        MoveTo(SpotsPosition[i][0],SpotsPosition[i][1]); //On se déplace vers la place
+        MoveTo(SpotsPositions[i][0],SpotsPositions[i][1],i); //On se déplace vers la place
         TakenSpots[i]=true; //On met à jour le tableau des places de parking
         TakenSpotsImmat[i]=PlateNumber; //On met à jour le tableau des plaques d'immatriculation
         ETAT=INIT;
@@ -366,6 +370,7 @@ void loop() {
     break;
 
     case PAYEMENT:
+    Serial.println("ETAT=PAYEMENT");
     bool Paid=false;
     Serial.println("Scannez votre ticket");
     Serial.println("Plaque d'immatriculation?");
@@ -375,8 +380,12 @@ void loop() {
     for(int i=0;i<20;i++){
       if(TakenSpotsImmat[i]==AskedPlateNumber){ //Si la plaque d'immatriculation correspond à une plaque d'immatriculation enregistrée
         Serial.println("Voiture trouvée");
-        Serial.println("Vous êtes restés "+TakenSpotsTimer[i]/60+"minutes sur le parking");
-        Serial.println("Vous devez payer "+TakenSpotsTimer[i]/60*0.1+"€");
+        Serial.print ("Vous êtes restés ");
+        Serial.print(TakenSpotsTimer[i]/60);
+        Serial.println("minutes sur le parking");
+        Serial.print("Vous devez payer ");
+        Serial.print((TakenSpotsTimer[i]/60)*0.1);
+        Serial.println("€");
         Serial.println("Paiement effectué?");
         TakenSpotsTimer[i]=0; //On remet le timer à 0
         while(Serial.available()==0){} //On attend que l'utilisateur entre la plaque d'immatriculation
@@ -389,9 +398,10 @@ void loop() {
     break;
 
     case DELIVERY:
+    Serial.println("ETAT=DELIVERY");
     for(int i=0;i<20;i++){
       if(TakenSpotsImmat[i]==AskedPlateNumber){ //Si la plaque d'immatriculation correspond à une plaque d'immatriculation enregistrée
-        MoveTo(SpotsPosition[i][0],SpotsPosition[i][1]); //On se déplace vers la place
+        MoveTo(SpotsPositions[i][0],SpotsPositions[i][1],i); //On se déplace vers la place
         TranslatePlatform.write(90); //On déplace la plateforme vers la place
         delay(5000); //On attend 5 secondes
         TranslatePlatform.write(0); //On remet la plateforme à sa position initiale
